@@ -26,9 +26,9 @@ void loop() {
     incomingByte = Serial.read();
 
     if (incomingByte == 'q') {
-  digitalWrite(tree1,HIGH);
-  delay(150);
-    digitalWrite(tree1,LOW);
+      digitalWrite(tree1,HIGH);
+      delay(150);
+      digitalWrite(tree1,LOW);
     }
 
     if (incomingByte == 'w') {
