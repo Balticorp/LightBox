@@ -1,134 +1,211 @@
 /* LightBox Audio Control
  * by Kamran Hetke & Rylan McFarland
+ ********************************************
+ * Based on code by Amanda Ghassaei
+ * http://www.instructables.com/id/Arduino-Frequency-Detection/
  */
 
-// Data storage variables
+//clipping indicator variables
+boolean clipping = 0;
+
+//data storage variables
 byte newData = 0;
 byte prevData = 0;
+unsigned int time = 0;//keeps time and sends vales to store in timer[] occasionally
+int timer[10];//sstorage for timing of events
+int slope[10];//storage for slope of events
+unsigned int totalTimer;//used to calculate period
+unsigned int period;//storage for period of wave
+byte index = 0;//current storage index
+float frequency;//storage for frequency calculations
+int maxSlope = 0;//used to calculate max slope as trigger point
+int newSlope;//storage for incoming slope data
 
-// Frequency variables
-unsigned int timer = 0; // Counts the period of wave
-unsigned int period;
-int frequency;
+//variables for decided whether you have a match
+byte noMatch = 0;//counts how many non-matches you've received to reset variables if it's been too long
+byte slopeTol = 3;//slope tolerance- adjust this if you need
+int timerTol = 10;//timer tolerance- adjust this if you need
 
-// Strand Designators
-int strand1 = 13;
-int strand2 = 12;
-int strand3 = 11;
-int strand4 = 10;
-int strand5 = 9;
-int strand6 = 8;
-int strand7 = 7;
-int strand8 = 6;
+//variables for amp detection
+unsigned int ampTimer = 0;
+byte maxAmp = 0;
+byte checkMaxAmp;
+byte ampThreshold = 30;//raise if you have a very noisy signal
 
-// Hertz Designators
-int c1 = 32;
-int c2 = 65;
-int c3 = 130;
-int c4 = 261;
-int c5 = 523;
-int c6 = 1046;
-int c7 = 2093;
-
-void setup() {
-  // Serial Begin:
+void setup(){
+  
   Serial.begin(9600);
-  // put your setup code here, to run once:
-  pinMode(strand1, OUTPUT);
-  pinMode(strand2, OUTPUT);
-  pinMode(strand3, OUTPUT);
-  pinMode(strand4, OUTPUT);
-  pinMode(strand5, OUTPUT);
-  pinMode(strand6, OUTPUT);
-  pinMode(strand7, OUTPUT);
-  pinMode(strand8, OUTPUT);
-
-  cli(); // Disable interrupts
   
-  // Setting up continuous sampling of analog pin 0
+  pinMode(13,OUTPUT);//led indicator pin
+  pinMode(12,OUTPUT);//output pin
+  pinMode(11,OUTPUT);
+  pinMode(10,OUTPUT);
+  pinMode(9,OUTPUT);
+  pinMode(8,OUTPUT);
+  pinMode(7,OUTPUT);
+  pinMode(6,OUTPUT);
   
-  // Clear ADCSRA and ADCSRB registers
+  cli();//diable interrupts
+  
+  //set up continuous sampling of analog pin 0 at 38.5kHz
+ 
+  //clear ADCSRA and ADCSRB registers
   ADCSRA = 0;
   ADCSRB = 0;
   
-  ADMUX |= (1 << REFS0); // Set reference voltage
-  ADMUX |= (1 << ADLAR); // Align the ADC value to the left so we can read highest 8 bits from ADCH register only
+  ADMUX |= (1 << REFS0); //set reference voltage
+  ADMUX |= (1 << ADLAR); //left align the ADC value- so we can read highest 8 bits from ADCH register only
   
-  ADCSRA |= (1 << ADPS2) | (1 << ADPS0); // Set the ADC clock with 32 prescaler- 16mHz/32=500kHz
-  ADCSRA |= (1 << ADATE); // Enable auto trigger
-  ADCSRA |= (1 << ADIE); // Enable interrupts when measurement complete
-  ADCSRA |= (1 << ADEN); // Enable ADC
-  ADCSRA |= (1 << ADSC); // Start ADC measurements
+  ADCSRA |= (1 << ADPS2) | (1 << ADPS0); //set ADC clock with 32 prescaler- 16mHz/32=500kHz
+  ADCSRA |= (1 << ADATE); //enabble auto trigger
+  ADCSRA |= (1 << ADIE); //enable interrupts when measurement complete
+  ADCSRA |= (1 << ADEN); //enable ADC
+  ADCSRA |= (1 << ADSC); //start ADC measurements
   
-  sei(); // Enable interrupts
+  sei();//enable interrupts
 }
 
-ISR(ADC_vect) {
-
-  prevData = newData; // Store previous value
-  newData = ADCH; // Get value from Analog input (A0)
-  if (prevData < 127 && newData >=127){
-    period = timer; // Get the period
-    timer = 0; // Reset the timer
+ISR(ADC_vect) {//when new ADC value ready
+  
+  prevData = newData;//store previous value
+  newData = ADCH;//get value from A0
+  if (prevData < 127 && newData >=127){//if increasing and crossing midpoint
+    newSlope = newData - prevData;//calculate slope
+    if (abs(newSlope-maxSlope)<slopeTol){//if slopes are ==
+      //record new data and reset time
+      slope[index] = newSlope;
+      timer[index] = time;
+      time = 0;
+      if (index == 0){//new max slope just reset
+        noMatch = 0;
+        index++;//increment index
+      }
+      else if (abs(timer[0]-timer[index])<timerTol && abs(slope[0]-newSlope)<slopeTol){//if timer duration and slopes match
+        //sum timer values
+        totalTimer = 0;
+        for (byte i=0;i<index;i++){
+          totalTimer+=timer[i];
+        }
+        period = totalTimer;//set period
+        //reset new zero index values to compare with
+        timer[0] = timer[index];
+        slope[0] = slope[index];
+        index = 1;//set index to 1
+        noMatch = 0;
+      }
+      else{//crossing midpoint but not match
+        index++;//increment index
+        if (index > 9){
+          reset();
+        }
+      }
+    }
+    else if (newSlope>maxSlope){//if new slope is much larger than max slope
+      maxSlope = newSlope;
+      time = 0;//reset clock
+      noMatch = 0;
+      index = 0;//reset index
+    }
+    else{//slope not steep enough
+      noMatch++;//increment no match counter
+      if (noMatch>9){
+        reset();
+      }
+    }
+  }
+    
+  if (newData <= 32){
+    digitalWrite(13,HIGH); 
+    clipping = 1;//currently clipping
+  }
+  if (32 < newData <= 65){
+    digitalWrite(12,HIGH);
+    clipping = 1;//currently clipping
+  }
+  if (65 < newData <= 130){
+    digitalWrite(11,HIGH);
+    clipping = 1;//currently clipping
+  }
+  if (130 < newData <= 261){
+    digitalWrite(10,HIGH);
+    clipping = 1;//currently clipping
+  }
+  if (261 < newData <= 523){
+    digitalWrite(9,HIGH);
+    clipping = 1;//currently clipping
+  }
+  if (523 < newData <= 1046){
+    digitalWrite(8,HIGH);
+    clipping = 1;//currently clipping
+  }
+  if (1046 < newData <= 2093){
+    digitalWrite(7,HIGH);
+    clipping = 1;//currently clipping
+  }
+  if (2093 <= newData){
+    digitalWrite(6,HIGH); 
+    clipping = 1;//currently clipping
   }
   
+  /* Setting a clipping LED with Binary & Ports
+  if (newData == 0 || newData == 1023){//if clipping
+    PORTB |= B00100000;//set pin 13 high- turn on clipping indicator led
+    clipping = 1;//currently clipping
+  }
+  */
   
-  // Sets specific pins to "on" when they fall between a certain hertz range
-  if (frequency <= c1){
-    digitalWrite(strand1, HIGH); // Set pin 13 high
-    clipping = 1; // Currently clipping
+  time++;//increment timer at rate of 38.5kHz
+  
+  ampTimer++;//increment amplitude timer
+  if (abs(127-ADCH)>maxAmp){
+    maxAmp = abs(127-ADCH);
   }
-  if (c1 < frequency <= c2){
-    digitalWrite(strand2, HIGH); // Set pin 12 high
-    clipping = 1; // Currently clipping
+  if (ampTimer==1000){
+    ampTimer = 0;
+    checkMaxAmp = maxAmp;
+    maxAmp = 0;
   }
-  if (c2 < frequency <= c3){
-    digitalWrite(strand3, HIGH); // Set pin 11 high
-    clipping = 1; // Currently clipping
-  }
-  if (c3 < frequency <= c4){
-    digitalWrite(strand4, HIGH); // Set pin 10 high
-    clipping = 1; // Currently clipping
-  }
-  if (c4 < frequency <= c5){
-    digitalWrite(strand5, HIGH); // Set pin 9 high
-    clipping = 1; // Currently clipping
-  }
-  if (c5 < frequency <= c6){
-    digitalWrite(strand6, HIGH); // Set pin 8 high
-    clipping = 1; // Currently clipping
-  }
-  if (c6 < frequency <= c7){
-    digitalWrite(strand7, HIGH); // Set pin 7 high
-    clipping = 1; // Currently clipping
-  }
-  if (c7 < frequency){
-    digitalWrite(strand8, HIGH); // Set pin 6 high
-    clipping = 1; // Currently clipping
-  }
-
-  timer++; // Increment timer at rate of 38.5kHz
+  
 }
 
-void loop(){
-  // If currently clipping
-  if (clipping){
-    digitalWrite(strand1, LOW); // Turn off the strand
-    digitalWrite(strand2, LOW); // Turn off the strand
-    digitalWrite(strand3, LOW); // Turn off the strand
-    digitalWrite(strand4, LOW); // Turn off the strand
-    digitalWrite(strand5, LOW); // Turn off the strand
-    digitalWrite(strand6, LOW); // Turn off the strand
-    digitalWrite(strand7, LOW); // Turn off the strand
-    digitalWrite(strand8, LOW); // Turn off the strand
+void reset(){//clea out some variables
+  index = 0;//reset index
+  noMatch = 0;//reset match couner
+  maxSlope = 0;//reset slope
+}
+
+
+void checkClipping(){//manage clipping indicator LED
+  if (clipping){//if currently clipping
+    digitalWrite(13,LOW);
+    digitalWrite(12,LOW);
+    digitalWrite(11,LOW);
+    digitalWrite(10,LOW);
+    digitalWrite(9,LOW);
+    digitalWrite(8,LOW);
+    digitalWrite(7,LOW);
+    digitalWrite(6,LOW);
+    //Binary & Port method of turning pin13 off:
+    //PORTB &= B11011111;
     clipping = 0;
   }
+}
 
-  frequency = 38462/period;// Timer rate divided by the period
-  // Print results
-  Serial.print(frequency);
-  Serial.println(" hz");
+
+void loop(){
   
-  delay(100);
+  checkClipping();
+  
+  if (checkMaxAmp>ampThreshold){
+    frequency = 38462/float(period);//calculate frequency timer rate/period
+  
+    //print results
+    Serial.print(frequency);
+    Serial.println(" hz");
+  }
+  
+  delay(10);//delete this if you want
+  
+  //do other stuff here
 }
 
