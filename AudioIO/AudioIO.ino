@@ -113,36 +113,60 @@ ISR(ADC_vect) {//when new ADC value ready
       }
     }
   }
-    
-  if (newData <= 32){
+  
+  if (newData <= 250){ 
+    clipping = 1;//currently clipping
+  }
+  else if (newData <= 32){
     digitalWrite(13,HIGH); 
     clipping = 1;//currently clipping
   }
-  if (32 < newData <= 65){
+  if (newData <= 250){ 
+    clipping = 1;//currently clipping
+  }
+  else if (32 < newData <= 65){
     digitalWrite(12,HIGH);
     clipping = 1;//currently clipping
   }
-  if (65 < newData <= 130){
+  if (newData <= 250){ 
+    clipping = 1;//currently clipping
+  }
+  else if (65 < newData <= 130){
     digitalWrite(11,HIGH);
     clipping = 1;//currently clipping
   }
-  if (130 < newData <= 261){
+  if (newData <= 250){ 
+    clipping = 1;//currently clipping
+  }
+  else if (130 < newData <= 261){
     digitalWrite(10,HIGH);
     clipping = 1;//currently clipping
   }
-  if (261 < newData <= 523){
+  if (newData <= 250){ 
+    clipping = 1;//currently clipping
+  }
+  else if (261 < newData <= 523){
     digitalWrite(9,HIGH);
     clipping = 1;//currently clipping
   }
-  if (523 < newData <= 1046){
+  if (newData <= 250){ 
+    clipping = 1;//currently clipping
+  }
+  else if (523 < newData <= 1046){
     digitalWrite(8,HIGH);
     clipping = 1;//currently clipping
   }
-  if (1046 < newData <= 2093){
+  if (newData <= 250){ 
+    clipping = 1;//currently clipping
+  }
+  else if (1046 < newData <= 2093){
     digitalWrite(7,HIGH);
     clipping = 1;//currently clipping
   }
-  if (2093 <= newData){
+  if (newData <= 250){ 
+    clipping = 1;//currently clipping
+  }
+  else if (2093 <= newData){
     digitalWrite(6,HIGH); 
     clipping = 1;//currently clipping
   }
