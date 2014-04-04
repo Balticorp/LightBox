@@ -8,6 +8,16 @@
 //clipping indicator variables
 boolean clipping = 0;
 
+
+//Set frequencies
+int f1 = 250;
+int f2 = 1000;
+int f3 = 1900;
+int f4 = 3100;
+int f5 = 4850;
+int f6 = 10000;
+int f7 = 15000;
+
 //data storage variables
 byte newData = 0;
 byte prevData = 0;
@@ -30,7 +40,7 @@ int timerTol = 10;//timer tolerance- adjust this if you need
 unsigned int ampTimer = 0;
 byte maxAmp = 0;
 byte checkMaxAmp;
-byte ampThreshold = 30;//raise if you have a very noisy signal
+byte ampThreshold = 100;//raise if you have a very noisy signal
 
 void setup(){
   
@@ -114,59 +124,69 @@ ISR(ADC_vect) {//when new ADC value ready
     }
   }
   
-  if (newData <= 250){ 
-    clipping = 1;//currently clipping
-  }
-  else if (newData <= 32){
+  if (frequency < f1){
     digitalWrite(13,HIGH); 
     clipping = 1;//currently clipping
   }
-  if (newData <= 250){ 
-    clipping = 1;//currently clipping
-  }
-  else if (32 < newData <= 65){
+  if (f1 <= frequency && frequency < f2){
     digitalWrite(12,HIGH);
     clipping = 1;//currently clipping
   }
-  if (newData <= 250){ 
-    clipping = 1;//currently clipping
-  }
-  else if (65 < newData <= 130){
+  if (f2 <= frequency && frequency < f3){
     digitalWrite(11,HIGH);
     clipping = 1;//currently clipping
   }
-  if (newData <= 250){ 
-    clipping = 1;//currently clipping
-  }
-  else if (130 < newData <= 261){
+  if (f3 <= frequency && frequency < f4){
     digitalWrite(10,HIGH);
     clipping = 1;//currently clipping
   }
-  if (newData <= 250){ 
-    clipping = 1;//currently clipping
-  }
-  else if (261 < newData <= 523){
+  if (f4 <= frequency && frequency < f5){
     digitalWrite(9,HIGH);
     clipping = 1;//currently clipping
   }
-  if (newData <= 250){ 
-    clipping = 1;//currently clipping
-  }
-  else if (523 < newData <= 1046){
+  if (f5 <= frequency && frequency < f6){
     digitalWrite(8,HIGH);
     clipping = 1;//currently clipping
   }
-  if (newData <= 250){ 
-    clipping = 1;//currently clipping
-  }
-  else if (1046 < newData <= 2093){
+  if (f6 <= frequency && frequency < f7){
     digitalWrite(7,HIGH);
     clipping = 1;//currently clipping
   }
-  if (newData <= 250){ 
+  if (f7 <= frequency){
+    digitalWrite(6,HIGH); 
     clipping = 1;//currently clipping
   }
-  else if (2093 <= newData){
+  
+  /*
+  if (frequency < 32){
+    digitalWrite(13,HIGH); 
+    clipping = 1;//currently clipping
+  }
+  if (32 <= frequency && frequency < 65){
+    digitalWrite(12,HIGH);
+    clipping = 1;//currently clipping
+  }
+  if (65 <= frequency && frequency < 130){
+    digitalWrite(11,HIGH);
+    clipping = 1;//currently clipping
+  }
+  if (130 <= frequency && frequency < 261){
+    digitalWrite(10,HIGH);
+    clipping = 1;//currently clipping
+  }
+  if (261 <= frequency && frequency < 523){
+    digitalWrite(9,HIGH);
+    clipping = 1;//currently clipping
+  }
+  if (523 <= frequency && frequency < 1046){
+    digitalWrite(8,HIGH);
+    clipping = 1;//currently clipping
+  }
+  if (1046 <= frequency && frequency < 2093){
+    digitalWrite(7,HIGH);
+    clipping = 1;//currently clipping
+  }
+  if (2093 <= frequency){
     digitalWrite(6,HIGH); 
     clipping = 1;//currently clipping
   }
@@ -228,7 +248,7 @@ void loop(){
     Serial.println(" hz");
   }
   
-  delay(10);//delete this if you want
+  delay(1);//delete this if you want
   
   //do other stuff here
 }
